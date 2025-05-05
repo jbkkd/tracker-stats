@@ -34,12 +34,16 @@ def parse_torrent_file(file_path: str) -> Optional[Dict[str, Any]]:
     """Reads and decodes a .torrent file."""
     try:
         with open(file_path, "rb") as f:
-            torrent_data = bencodepy.decode(f.read())
+            content = f.read()
+            if not content: # Handle empty file explicitly
+                print(f"Error: Torrent file is empty: {file_path}", file=sys.stderr)
+                return None
+            torrent_data = bencodepy.decode(content)
             return torrent_data
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}", file=sys.stderr)
         return None
-    except bencodepy.BencodeDecodeError as e:
+    except ValueError as e: # Catch ValueError for bencode decoding errors
         print(
             f"Error: Could not decode Bencoded data in {file_path}: {e}",
             file=sys.stderr,
@@ -59,10 +63,11 @@ def calculate_info_hash(info_dict: Dict[str, Any]) -> bytes:
 def calculate_total_size(info_dict: Dict[str, Any]) -> int:
     """Calculates the total size of files in the torrent."""
     total_size = 0
-    if "files" in info_dict:  # Multi-file torrent
-        for file_info in info_dict["files"]:
+    # Use bytes keys b"files" and b"length"
+    if b"files" in info_dict:  # Multi-file torrent
+        for file_info in info_dict[b"files"]:
             total_size += file_info.get(b"length", 0)
-    elif "length" in info_dict:  # Single-file torrent
+    elif b"length" in info_dict:  # Single-file torrent
         total_size = info_dict.get(b"length", 0)
     return total_size
 
@@ -138,7 +143,7 @@ def query_tracker(
                 print(f"Tracker error from {tracker_url}: {failure}", file=sys.stderr)
                 return None
             return tracker_response
-        except bencodepy.BencodeDecodeError as e:
+        except ValueError as e: # Catch ValueError for bencode decoding errors
             print(
                 f"Error: Could not decode Bencoded response from {tracker_url}: {e}",
                 file=sys.stderr,
@@ -222,25 +227,27 @@ def main():
             "Error: No suitable HTTP/HTTPS tracker URLs found in the torrent file.",
             file=sys.stderr,
         )
-        sys.exit(1)
-
-    print(f"\nFound {len(tracker_urls)} HTTP/S tracker(s). Querying...")
-
-    results_found = False
-    for url in tracker_urls:
-        print(f"Querying {url}...")
-        stats = query_tracker(url, info_hash, peer_id, total_size)
-        if stats:
-            display_stats(url, stats)
-            results_found = True
-        else:
-            print(f"  Failed to get stats from {url}")
-
-    if not results_found:
-        print("\nNo stats could be retrieved from any tracker.")
-        sys.exit(1)
+        sys.exit(1) # Exit if no suitable trackers
     else:
-        print("\nFinished.")
+        # Only proceed if tracker URLs were found
+        print(f"\nFound {len(tracker_urls)} HTTP/S tracker(s). Querying...")
+
+        results_found = False
+        for url in tracker_urls:
+            print(f"Querying {url}...")
+            stats = query_tracker(url, info_hash, peer_id, total_size)
+            if stats:
+                display_stats(url, stats)
+                results_found = True
+            else:
+                print(f"  Failed to get stats from {url}")
+
+        # Check if any tracker succeeded *only* if we attempted to query them
+        if not results_found:
+            print("\nNo stats could be retrieved from any tracker.")
+            sys.exit(1) # Exit if all queried trackers failed
+        else:
+            print("\nFinished.") # Only print Finished if at least one tracker succeeded
 
 
 if __name__ == "__main__":
