@@ -12,7 +12,7 @@ python torrent_stats.py <path_to_torrent_file.torrent>
 
 This project was developed entirely using AI tools:
 
-*   **aider:** An AI pair programming tool used for code generation and modification.
-*   **Google Gemini 2.5 Pro Exp:** The underlying language model providing the coding intelligence.
+*   **[aider](https://github.com/Aider-AI/aider):** An AI pair programming tool used for code generation and modification.
+*   **[Google Gemini 2.5 Pro Exp](https://blog.google/technology/google-deepmind/gemini-model-thinking-updates-march-2025/):** The underlying language model providing the coding intelligence. Released on my birthday!
 
 I didn't write any code in this repo; human involvement was limited to providing prompts, reviewing the generated code, and performing linting/formatting.
